@@ -259,6 +259,26 @@ det   = st.session_state.det
 model = load_model()
 
 # ─────────────────────────────────────────────────────────
+# CAMERA PERMISSION REQUEST
+# ─────────────────────────────────────────────────────────
+st.components.v1.html("""
+<script>
+(function() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    if (window._camPermissionRequested) return;
+    window._camPermissionRequested = true;
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+        })
+        .catch(function(err) {
+            console.warn("Camera permission denied or unavailable:", err);
+        });
+})();
+</script>
+""", height=0)
+
+# ─────────────────────────────────────────────────────────
 # PAGE
 # ─────────────────────────────────────────────────────────
 st.title("Live Detection")
