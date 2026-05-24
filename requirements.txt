@@ -1,11 +1,11 @@
-﻿torch
+﻿streamlit
+streamlit-webrtc
+torch
 torchvision
 opencv-python-headless
 numpy
-scikit-learn
-streamlit
-Pillow
 huggingface_hub
-tqdm
-streamlit-webrtc
 av
+Pillow
+tqdm
+scikit-learn
