@@ -7,3 +7,5 @@ streamlit
 Pillow
 huggingface_hub
 tqdm
+streamlit-webrtc
+av
