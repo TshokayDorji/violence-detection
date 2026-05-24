@@ -6,3 +6,4 @@ scikit-learn
 streamlit
 Pillow
 huggingface_hub
+tqdm
