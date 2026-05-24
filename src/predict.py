@@ -8,7 +8,7 @@ from model import ViolenceDetector
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def predict_video(video_path, num_frames=16, img_size=224):
-    model = ViolenceDetector().to(DEVICE)
+    model = ViolenceDetector(pretrained=False).to(DEVICE)
     model.load_state_dict(torch.load('../models/best_model.pth', map_location=DEVICE))
     model.eval()
 

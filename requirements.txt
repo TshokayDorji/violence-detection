@@ -2,8 +2,8 @@
 streamlit-webrtc
 torch
 torchvision
-opencv-python-headless
-numpy
+opencv-python-headless<4.12
+numpy<2
 huggingface_hub
 av
 Pillow

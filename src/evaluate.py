@@ -15,7 +15,7 @@ def evaluate():
     test_ds = ViolenceDataset(DATA_DIR, split='test', num_frames=16)
     test_loader = DataLoader(test_ds, batch_size=8, shuffle=False, num_workers=2)
 
-    model = ViolenceDetector().to(DEVICE)
+    model = ViolenceDetector(pretrained=False).to(DEVICE)
     model.load_state_dict(torch.load(os.path.join(MODEL_DIR, 'best_model.pth'), map_location=DEVICE))
     model.eval()
 

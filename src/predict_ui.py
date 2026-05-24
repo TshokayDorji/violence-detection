@@ -9,7 +9,7 @@ MODEL_PATH = '../models/best_model.pth'
 NUM_FRAMES, IMG_SIZE = 16, 224
 
 def load_model():
-    m = ViolenceDetector().to(DEVICE)
+    m = ViolenceDetector(pretrained=False).to(DEVICE)
     m.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     m.eval()
     return m

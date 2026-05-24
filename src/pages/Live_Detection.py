@@ -67,7 +67,7 @@ def load_model():
             local_dir=model_dir,
             token=st.secrets.get("HF_TOKEN", None)
         )
-    m = ViolenceDetector().to(DEVICE)
+    m = ViolenceDetector(pretrained=False).to(DEVICE)
     m.load_state_dict(torch.load(local_path, map_location=DEVICE))
     m.eval()
     return m

@@ -11,11 +11,12 @@ class ViolenceDetector(nn.Module):
     - Dense classifier outputs violence probability
     """
 
-    def __init__(self, hidden_size=256, num_layers=2, dropout=0.3):
+    def __init__(self, hidden_size=256, num_layers=2, dropout=0.3, pretrained=True):
         super(ViolenceDetector, self).__init__()
 
         # ── CNN Spatial Encoder: ResNet50 ──────────────────────
-        resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        weights = models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        resnet = models.resnet50(weights=weights)
         self.cnn = nn.Sequential(*list(resnet.children())[:-1])  # (B, 2048, 1, 1)
 
         # Freeze early layers — only fine-tune layer3 and layer4
