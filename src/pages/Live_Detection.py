@@ -41,7 +41,7 @@ def load_model():
         os.makedirs(model_dir, exist_ok=True)
         local_path = hf_hub_download(
             repo_id=st.secrets.get(
-                "HF_REPO", "YOUR_HF_USERNAME/violence-detection"
+                "violence-detection", "TshokayDorji/violence-detection"
             ),
             filename="best_model.pth",
             local_dir=model_dir,
