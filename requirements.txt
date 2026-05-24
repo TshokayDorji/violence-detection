@@ -1,0 +1,8 @@
+torch==2.7.0
+torchvision==0.22.0
+opencv-python-headless
+numpy
+scikit-learn
+streamlit
+Pillow
+huggingface_hub
