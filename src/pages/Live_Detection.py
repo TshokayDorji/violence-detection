@@ -32,7 +32,7 @@ MAX_MOTION    = 95.0
 POLL_MS       = 80
 
 # ─────────────────────────────────────────────────────────
-# RTC CONFIGURATION  ← added for cloud webcam support
+# RTC CONFIGURATION
 # ─────────────────────────────────────────────────────────
 RTC_CONFIGURATION = RTCConfiguration({
     "iceServers": [
@@ -68,7 +68,7 @@ def load_model():
             local_dir=model_dir,
             token=st.secrets.get("HF_TOKEN", None)
         )
-    m = ViolenceDetector(pretrained=False).to(DEVICE)
+    m = ViolenceDetector().to(DEVICE)
     m.load_state_dict(torch.load(local_path, map_location=DEVICE))
     m.eval()
     return m
@@ -165,31 +165,30 @@ def draw_overlay(frame_rgb, label, prob, motion):
     return out
 
 # ─────────────────────────────────────────────────────────
-# WEBRTC VIDEO PROCESSOR  ← replaces open_camera + camera_worker
+# WEBRTC VIDEO PROCESSOR
 # ─────────────────────────────────────────────────────────
 class ViolenceProcessor(VideoProcessorBase):
     def __init__(self):
-        self._model    = load_model()
-        self._det      = None          # set from outside after creation
-        self._buf      = deque(maxlen=NUM_FRAMES)
-        self._prob_hist= deque(maxlen=SMOOTH_WINDOW)
-        self._count    = 0
-        self._prev_gray= None
-        self._motion   = 0.0
-        self._prob     = 0.0
-        self._label    = "NON-VIOLENT"
-        self._consec   = 0
-        self.threshold = 0.75
+        self._model     = load_model()
+        self._det       = None
+        self._buf       = deque(maxlen=NUM_FRAMES)
+        self._prob_hist = deque(maxlen=SMOOTH_WINDOW)
+        self._count     = 0
+        self._prev_gray = None
+        self._motion    = 0.0
+        self._prob      = 0.0
+        self._label     = "NON-VIOLENT"
+        self._consec    = 0
+        self.threshold  = 0.75
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-        # convert incoming WebRTC frame to BGR (same as cv2 reads)
         img_rgb = frame.to_ndarray(format="rgb24")
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         img_bgr = cv2.flip(img_bgr, 1)
 
         self._count += 1
 
-        # motion — identical logic to old camera_worker
+        # motion
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (15, 15), 0)
         if self._prev_gray is not None:
@@ -198,7 +197,7 @@ class ViolenceProcessor(VideoProcessorBase):
 
         self._buf.append(to_tensor(img_bgr))
 
-        # inference — identical logic to old camera_worker
+        # inference
         if len(self._buf) == NUM_FRAMES and self._count % INFER_EVERY == 0:
             if MIN_MOTION <= self._motion <= MAX_MOTION:
                 raw = infer(self._model, self._buf)
@@ -241,11 +240,9 @@ class ViolenceProcessor(VideoProcessorBase):
                     self._det.write(label="NON-VIOLENT", consec=0,
                                     motion=self._motion)
 
-        # draw overlay and return frame — identical to old draw path
+        # draw overlay and return — webrtc displays this, no need for feed_slot
         rgb_out = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         display = draw_overlay(rgb_out, self._label, self._prob, self._motion)
-        if self._det is not None:
-            self._det.write(frame=display)
 
         return av.VideoFrame.from_ndarray(display, format="rgb24")
 
@@ -293,13 +290,10 @@ threshold_pct = st.slider(
 )
 threshold = threshold_pct / 100.0
 
-b1, b2     = st.columns(2)
-start_btn  = b1.button("Start", use_container_width=True, type="primary")
-stop_btn   = b2.button("Stop",  use_container_width=True)
+b1, b2    = st.columns(2)
+start_btn = b1.button("Start", use_container_width=True, type="primary")
+stop_btn  = b2.button("Stop",  use_container_width=True)
 
-# ─────────────────────────────────────────────────────────
-# WEBRTC STREAMER  ← replaces threading.Thread(camera_worker)
-# ─────────────────────────────────────────────────────────
 if start_btn and det.phase not in ("warming", "running"):
     det                  = Detection()
     st.session_state.det = det
@@ -309,6 +303,7 @@ if stop_btn and det.phase in ("warming", "running"):
     det.stop.set()
     det.write(phase="stopped")
 
+# webrtc widget — this is the only camera display
 ctx = webrtc_streamer(
     key="violence-detection",
     rtc_configuration=RTC_CONFIGURATION,
@@ -318,14 +313,15 @@ ctx = webrtc_streamer(
     desired_playing_state=det.phase == "running",
 )
 
-# wire the shared Detection object into the processor
 if ctx.video_processor:
-    ctx.video_processor._det       = det
-    ctx.video_processor.threshold  = threshold
+    ctx.video_processor._det      = det
+    ctx.video_processor.threshold = threshold
 
 st.divider()
 
-feed_slot   = st.empty()
+# ─────────────────────────────────────────────────────────
+# STATUS / STATS BELOW THE WEBRTC WIDGET (no feed_slot)
+# ─────────────────────────────────────────────────────────
 status_slot = st.empty()
 bar_slot    = st.empty()
 meta_slot   = st.empty()
@@ -334,22 +330,12 @@ st.caption("Detection log")
 log_slot = st.empty()
 
 # ─────────────────────────────────────────────────────────
-# POLLING LOOP  ← unchanged
+# POLLING LOOP
 # ─────────────────────────────────────────────────────────
 if det.phase in ("warming", "running"):
     while True:
         s   = det.snapshot()
         pct = s["prob"] * 100
-
-        # feed
-        if s["phase"] == "warming":
-            feed_slot.info("Camera warming up — please wait...")
-        elif s["frame"] is not None:
-            feed_slot.image(
-                s["frame"],
-                channels="RGB",
-                use_container_width=True
-            )
 
         # status
         if s["phase"] == "running":
@@ -358,21 +344,13 @@ if det.phase in ("warming", "running"):
                    else s["prob"] * 100
 
             if m < MIN_MOTION:
-                status_slot.info(
-                    f"Scene is static — inference paused"
-                )
+                status_slot.info("Scene is static — inference paused")
             elif m > MAX_MOTION:
-                status_slot.warning(
-                    f"Too much movement — skipping inference"
-                )
+                status_slot.warning("Too much movement — skipping inference")
             elif s["label"] == "VIOLENT":
-                status_slot.error(
-                    f"VIOLENT — {conf:.1f}% confidence"
-                )
+                status_slot.error(f"VIOLENT — {conf:.1f}% confidence")
             else:
-                status_slot.success(
-                    f"NON-VIOLENT — {conf:.1f}% confidence"
-                )
+                status_slot.success(f"NON-VIOLENT — {conf:.1f}% confidence")
 
             bar_slot.progress(
                 s["prob"],
@@ -409,7 +387,6 @@ if det.phase in ("warming", "running"):
         time.sleep(POLL_MS / 1000)
 
 elif det.phase == "stopped":
-    feed_slot.info("Press Start to begin.")
     s = det.snapshot()
     if s["total"] > 0:
         st.divider()
@@ -426,7 +403,6 @@ elif det.phase == "stopped":
 
 elif det.phase == "error":
     st.error(det.error_msg)
-    feed_slot.info("Press Start to try again.")
 
 else:
-    st.info("Click **START** above to begin. Your browser will ask for camera permission.")
+    st.info("Press Start to begin.")
